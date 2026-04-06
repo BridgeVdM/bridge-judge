@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Bridge Judge PRO</title>
+
+<style>
+body { font-family: Arial; padding: 20px; background:#f5f5f5; }
+.box { background:white; padding:15px; margin-bottom:15px; border-radius:8px; }
+input, select { margin:5px; padding:5px; }
+button { margin:5px; padding:10px; }
+
+button:disabled { background:#ccc; color:#666; }
+input:disabled { background:#ddd; }
+</style>
+</head>
+
+<body>
+
+<h2>Bridge Judge PRO</h2>
+
+<div class="box">
+<h3>Franja</h3>
+<select id="franja">
+<option value="0">Franja 1</option>
+<option value="1">Franja 2</option>
+<option value="2">Franja 3</option>
+</select>
+<div id="estatFranja"></div>
+</div>
+
+<div class="box">
+<h3>Configuració</h3>
+
+Taula 1:
+V <select id="t1V"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+H <select id="t1H"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+
+<br><br>
+
+Taula 2:
+V <select id="t2V"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+H <select id="t2H"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+
+<br>
+<button id="btnGuardar">Guardar configuració</button>
+</div>
+
+<div class="box">
+<h3>Resultats</h3>
+
+Taula 1:
+<input id="t1x" placeholder="x">
+<input id="t1y" placeholder="y"><br>
+
+Taula 2:
+<input id="t2x" placeholder="x">
+<input id="t2y" placeholder="y">
+</div>
+
+<button id="btnCalc">Calcular ronda</button>
+<button id="btnNova">Nova ronda</button>
+<button id="btnReset">Reset sessió</button>
+
+<h3>Resultat</h3>
+<div id="resultat"></div>
+
+<h3>Historial</h3>
+<div id="historial"></div>
+
+<h3>Resum per franges</h3>
+<div id="resum"></div>
+
+<h3>Ranking</h3>
+<div id="ranking"></div>
+
+<script>
+
+function $(id){ return document.getElementById(id); }
+
+let configuracions=[null,null,null];
+let historial=[[],[],[]];
+let ranking=[0,0,0,0];
+
+let rondaGlobal=0;
+let rondaCalculada=false;
+
+// ----------- GUARDAR -----------
+
+function guardarDades(){
+localStorage.setItem("bridgeJudge", JSON.stringify({
+configuracions,historial,ranking,rondaGlobal
+}));
+}
+
+function carregarDades(){
+let d=localStorage.getItem("bridgeJudge");
+if(!d) return;
+
+let obj=JSON.parse(d);
+configuracions=obj.configuracions||[null,null,null];
+historial=obj.historial||[[],[],[]];
+ranking=obj.ranking||[0,0,0,0];
+rondaGlobal=obj.rondaGlobal||0;
+
+actualitzarUI();
+}
+
+// ----------- UI -----------
+
+function actualitzarUI(){
+
+// historial
+let h="";
+for(let f=0;f<3;f++){
+h+="<b>Franja "+(f+1)+"</b><br>";
+historial[f].forEach((r,i)=>{
+h+="Joc "+(i+1)+": "+r.join(", ")+"<br>";
+});
+h+="<br>";
+}
+$("historial").innerHTML=h;
+
+// resum franges
+let resum="";
+for(let f=0;f<3;f++){
+let total=[0,0,0,0];
+historial[f].forEach(r=>{
+for(let i=0;i<4;i++) total[i]+=r[i];
+});
+resum+="Franja "+(f+1)+": P1="+total[0]+" P2="+total[1]+" P3="+total[2]+" P4="+total[3]+"<br>";
+}
+$("resum").innerHTML=resum;
+
+// ranking
+let c=[
+{p:"P1",pts:ranking[0]},
+{p:"P2",pts:ranking[1]},
+{p:"P3",pts:ranking[2]},
+{p:"P4",pts:ranking[3]}
+];
+
+c.sort((a,b)=>b.pts-a.pts);
+
+let html="";
+c.forEach((e,i)=>{
+html+=(i+1)+"º - "+e.p+": "+e.pts+" punts"+(i===0?" 🏆":"")+"<br>";
+});
+
+$("ranking").innerHTML=html;
+
+// estat franja
+let f=Math.floor(rondaGlobal/8)+1;
+$("estatFranja").innerHTML="Ronda "+(rondaGlobal+1)+" / 24 — Franja "+f;
+}
+
+// ----------- BLOQUEIG -----------
+
+function bloquejarInputs(){
+$("t1x").disabled=true;
+$("t1y").disabled=true;
+$("t2x").disabled=true;
+$("t2y").disabled=true;
+}
+
+function desbloquejarInputs(){
+$("t1x").disabled=false;
+$("t1y").disabled=false;
+$("t2x").disabled=false;
+$("t2y").disabled=false;
+}
+
+function bloquejarBoto(){ $("btnCalc").disabled=true; }
+function desbloquejarBoto(){ $("btnCalc").disabled=false; }
+
+// ----------- CONFIG -----------
+
+function guardar(){
+
+let f=$("franja").value;
+
+// bloqueig si ja hi ha jocs
+if(historial[f].length>0){
+alert("No es pot canviar configuració en aquesta franja");
+return;
+}
+
+let vals=[$("t1V").value,$("t1H").value,$("t2V").value,$("t2H").value];
+
+if(vals.includes("")){
+alert("Falten parelles");
+return;
+}
+
+if(new Set(vals).size!==4){
+alert("Parelles repetides");
+return;
+}
+
+configuracions[f]={
+t1V:Number(vals[0]),
+t1H:Number(vals[1]),
+t2V:Number(vals[2]),
+t2H:Number(vals[3])
+};
+
+guardarDades();
+alert("Configuració guardada");
+}
+
+// ----------- NOVA FRANJA -----------
+
+function novaFranja(){
+
+desbloquejarInputs();
+desbloquejarBoto();
+rondaCalculada=false;
+
+$("t1x").value="";
+$("t1y").value="";
+$("t2x").value="";
+$("t2y").value="";
+
+alert("⚠️ Nova franja: configura taules");
+}
+
+// ----------- CALCULAR -----------
+
+function calcular(){
+
+if(rondaCalculada){
+alert("Ja calculada");
+return;
+}
+
+if(rondaGlobal>=24){
+alert("Torneig finalitzat");
+return;
+}
+
+let f=$("franja").value;
+let config=configuracions[f];
+
+if(!config){
+alert("Configura la franja");
+return;
+}
+
+let x1=$("t1x").value,y1=$("t1y").value;
+let x2=$("t2x").value,y2=$("t2y").value;
+
+if((x1&&y1)||(!x1&&!y1)) return alert("Error T1");
+if((x2&&y2)||(!x2&&!y2)) return alert("Error T2");
+
+x1=Number(x1)||0; y1=Number(y1)||0;
+x2=Number(x2)||0; y2=Number(y2)||0;
+
+let p1 = x1!==0 ? config.t1V : config.t1H;
+let p2 = x2!==0 ? config.t2V : config.t2H;
+
+let v1 = x1!==0 ? x1 : y1;
+let v2 = x2!==0 ? x2 : y2;
+
+let punts=[0,0,0,0];
+
+if(v1===v2){
+punts=[1,1,1,1];
+}else{
+
+let g = v1>v2 ? p1 : p2;
+let p = v1>v2 ? p2 : p1;
+
+function rival(x){
+if(x===config.t1V) return config.t1H;
+if(x===config.t1H) return config.t1V;
+if(x===config.t2V) return config.t2H;
+return config.t2V;
+}
+
+punts[g]=2;
+punts[rival(g)]=0;
+punts[p]=0;
+punts[rival(p)]=2;
+}
+
+// acumular
+for(let i=0;i<4;i++) ranking[i]+=punts[i];
+
+historial[f].push(punts);
+
+// UI
+$("resultat").innerHTML =
+"P1: "+punts[0]+"<br>"+
+"P2: "+punts[1]+"<br>"+
+"P3: "+punts[2]+"<br>"+
+"P4: "+punts[3];
+
+actualitzarUI();
+
+bloquejarInputs();
+bloquejarBoto();
+rondaCalculada=true;
+
+rondaGlobal++;
+
+// canvi franja
+if(rondaGlobal===8){
+$("franja").value="1";
+novaFranja();
+}
+else if(rondaGlobal===16){
+$("franja").value="2";
+novaFranja();
+}
+
+guardarDades();
+}
+
+// ----------- NOVA RONDA -----------
+
+function nova(){
+
+$("t1x").value="";
+$("t1y").value="";
+$("t2x").value="";
+$("t2y").value="";
+
+desbloquejarInputs();
+desbloquejarBoto();
+rondaCalculada=false;
+}
+
+// ----------- RESET -----------
+
+function resetSessio(){
+
+if(!confirm("Reiniciar sessió?")) return;
+
+configuracions=[null,null,null];
+historial=[[],[],[]];
+ranking=[0,0,0,0];
+rondaGlobal=0;
+rondaCalculada=false;
+
+$("resultat").innerHTML="";
+$("historial").innerHTML="";
+$("ranking").innerHTML="";
+$("resum").innerHTML="";
+
+nova();
+guardarDades();
+}
+
+// ----------- EVENTS -----------
+
+btnCalc.onclick=calcular;
+btnNova.onclick=nova;
+btnGuardar.onclick=guardar;
+btnReset.onclick=resetSessio;
+
+carregarDades();
+
+</script>
+
+</body>
+</html>
