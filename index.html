@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pool 2 Taules - Puntuació</title>
+  <style>
+    :root { --b:#e5e7eb; --t:#111827; --m:#6b7280; --bg:#f9fafb; --w:#fff; --a:#2563eb; }
+    body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:var(--bg); color:var(--t); }
+    header{ padding:16px 20px; background:var(--w); border-bottom:1px solid var(--b); }
+    h1{ margin:0; font-size:18px; }
+    main{ padding:20px; max-width:1100px; margin:0 auto; }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .card{ background:var(--w); border:1px solid var(--b); border-radius:10px; padding:14px; }
+    .card h2{ font-size:14px; margin:0 0 10px; color:var(--m); font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+    label{ font-size:13px; color:var(--m); }
+    input, select, button{
+      font: inherit; font-size:14px; padding:8px 10px; border:1px solid var(--b);
+      border-radius:8px; background:#fff;
+    }
+    input[type="number"]{ width:120px; }
+    button{ cursor:pointer; border-color:#c7d2fe; }
+    button.primary{ background:var(--a); color:#fff; border-color:var(--a); }
+    button.danger{ background:#ef4444; color:#fff; border-color:#ef4444; }
+    table{ width:100%; border-collapse:collapse; font-size:13px; }
+    th, td{ border:1px solid var(--b); padding:6px 8px; text-align:center; }
+    th{ background:#f3f4f6; }
+    .muted{ color:var(--m); font-size:12px; }
+    .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-size:12px; }
+    .ok{ color:#065f46; }
+    .warn{ color:#92400e; }
+    .split{ display:grid; grid-template-columns: 1fr; gap:12px; }
+    @media (max-width: 900px){ .grid{ grid-template-columns:1fr; } }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>Pool de 2 taules — Puntuació (24 jocs / 3 franges)</h1>
+  <div class="muted">Implementació segons les regles i el flux descrits al document.</div>
+</header>
+
+<main>
+  <div class="grid">
+    <!-- Estat -->
+    <section class="card">
+      <h2>Estat</h2>
+      <div class="row">
+        <div><span class="pill">Franja: <span id="franja">1</span></span></div>
+        <div><span class="pill">Joc: <span id="joc">1</span> / 24</span></div>
+      </div>
+      <div class="row">
+        <button id="btnNovaFranja">Canviar franja ( +1 )</button>
+        <button id="btnReset" class="danger">Reset</button>
+      </div>
+      <div class="muted">
+        Recordatori: 3 franges de 8 jocs, i en cada franja les parelles mantenen posició fins el canvi.
+      </div>
+    </section>
+
+    <!-- Posicions (P) -->
+    <section class="card">
+      <h2>Matriu Parelles P (2x2) — posicions franja actual</h2>
+      <div class="muted">Files = taules (1–2), Columnes = línies (NS/EO).</div>
+
+      <div class="split">
+        <div>
+          <div class="row"><strong>Taula 1</strong></div>
+          <div class="row">
+            <label>NS</label><input id="p_t1_ns" value="P1" />
+            <label>EO</label><input id="p_t1_eo" value="P2" />
+          </div>
+        </div>
+        <div>
+          <div class="row"><strong>Taula 2</strong></div>
+          <div class="row">
+            <label>NS</label><input id="p_t2_ns" value="P3" />
+            <label>EO</label><input id="p_t2_eo" value="P4" />
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btnGuardarP" class="primary">Guardar posicions P</button>
+        <span id="msgP" class="muted"></span>
+      </div>
+    </section>
+
+    <!-- Entrada joc -->
+    <section class="card">
+      <h2>Entrada del joc (J i M)</h2>
+      <div class="muted">
+        L’usuari introdueix (Pi,Pj) a J (parelles que procuren complir contracte) i el resultat a M (2 valors no nuls).
+      </div>
+
+      <div class="row">
+        <label>Juga contracte Taula 1</label>
+        <select id="j_t1"></select>
+
+        <label>Juga contracte Taula 2</label>
+        <select id="j_t2"></select>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--b); margin:12px 0">
+
+      <div class="muted">Introdueix els dos resultats no nuls (un per cada taula/línia que correspongui).</div>
+
+      <div class="row">
+        <label>Resultat 1</label>
+        <select id="m1_pos">
+          <option value="0,0">Taula 1 - NS</option>
+          <option value="0,1">Taula 1 - EO</option>
+          <option value="1,0">Taula 2 - NS</option>
+          <option value="1,1">Taula 2 - EO</option>
+        </select>
+        <input id="m1_val" type="number" placeholder="punts" />
+      </div>
+
+      <div class="row">
+        <label>Resultat 2</label>
+        <select id="m2_pos">
+          <option value="0,0">Taula 1 - NS</option>
+          <option value="0,1">Taula 1 - EO</option>
+          <option value="1,0">Taula 2 - NS</option>
+          <option value="1,1">Taula 2 - EO</option>
+        </select>
+        <input id="m2_val" type="number" placeholder="punts" />
+      </div>
+
+      <div class="row">
+        <button id="btnCalcular" class="primary">Aplicar regles i guardar joc</button>
+        <span id="msgCalc" class="muted"></span>
+      </div>
+
+      <div class="muted">
+        En acabar cada joc s’emplena H. Al final (joc 24) se suma per parella i es presenta R ordenat.
+      </div>
+    </section>
+
+    <!-- Taules -->
+    <section class="card">
+      <h2>Matrius (vista)</h2>
+
+      <div class="row"><strong>P (posicions)</strong></div>
+      <table>
+        <thead><tr><th></th><th>NS</th><th>EO</th></tr></thead>
+        <tbody>
+          <tr><th>Taula 1</th><td id="vp_00"></td><td id="vp_01"></td></tr>
+          <tr><th>Taula 2</th><td id="vp_10"></td><td id="vp_11"></td></tr>
+        </tbody>
+      </table>
+
+      <div class="row" style="margin-top:12px"><strong>Últims punts assignats (joc actual)</strong></div>
+      <table>
+        <thead><tr><th>Parella</th><th>Punts</th></tr></thead>
+        <tbody id="vPunts"></tbody>
+      </table>
+    </section>
+
+    <!-- Historial i Resultat -->
+    <section class="card">
+      <h2>Historial H i Resultat R</h2>
+
+      <div class="row">
+        <button id="btnMostrarH">Mostrar H (últims 10)</button>
+        <button id="btnResultat">Calcular R / Classificació</button>
+      </div>
+
+      <div id="zonaH" class="muted"></div>
+      <div id="zonaR" style="margin-top:10px"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+let franja = 1;
+let jocIndex = 0; // 0..23
+
+let parelles = ["P1","P2","P3","P4"];
+
+let P = [
+  ["P1","P2"],
+  ["P3","P4"]
+];
+
+let J = ["P1","P3"];
+
+let H = Array.from({length:24}, () => [0,0,0,0]);
+
+let lastPunts = [0,0,0,0];
+
+function indexParella(p){ return parelles.indexOf(p); }
+
+function posicioParella(parella){
+  for(let i=0;i<2;i++){
+    for(let j=0;j<2;j++){
+      if(P[i][j] === parella) return {taula:i, columna:j};
+    }
+  }
+  return null;
+}
+
+function valorsNoNuls(M){
+  const out=[];
+  for(let i=0;i<2;i++){
+    for(let j=0;j<2;j++){
+      if(M[i][j] !== 0){
+        out.push({taula:i,columna:j,valor:M[i][j]});
+      }
+    }
+  }
+  return out;
+}
+
+function mateixaColumnaPosicio(a, b){
+  return a && b && a.columna === b.columna;
+}
+
+function mateixaColumnaResultat(r1, r2){
+  return r1.columna === r2.columna;
+}
+
+/**
+ * Regles segons resum dia 22:
+ * - Empat (valors iguals): 1 punt a cada parella dels resultats.
+ * - CAS 1 (únic SENSE comparació): declarants mateixa columna a P i resultats en diferent columna a M.
+ * - CASOS 2/3/4 (AMB comparació): la resta de casos (comparar valors).
+ */
+function aplicarRegles(M, J){
+  const punts = [0,0,0,0];
+  const v = valorsNoNuls(M);
+
+  if(v.length !== 2){
+    throw new Error("Calen exactament 2 valors no nuls a M.");
+  }
+
+  const [r1, r2] = v;
+
+  // 0) EMPAT
+  if(r1.valor === r2.valor){
+    punts[indexParella(P[r1.taula][r1.columna])] += 1;
+    punts[indexParella(P[r2.taula][r2.columna])] += 1;
+    return punts;
+  }
+
+  // Posicions dels declarants a P
+  const d1 = posicioParella(J[0]);
+  const d2 = posicioParella(J[1]);
+
+  const declarantsMateixaCol = mateixaColumnaPosicio(d1, d2);
+  const resultatsMateixaCol = mateixaColumnaResultat(r1, r2);
+
+  // 1) CAS 1 (únic SENSE comparació)
+  if(declarantsMateixaCol && !resultatsMateixaCol){
+    punts[indexParella(P[r1.taula][r1.columna])] += 2;
+    punts[indexParella(P[r2.taula][r2.columna])] += 2;
+    return punts;
+  }
+
+  // 2/3/4) CASOS AMB comparació
+  const guanyador = (r1.valor > r2.valor) ? r1 : r2;
+  const perdedor  = (r1.valor > r2.valor) ? r2 : r1;
+
+  punts[indexParella(P[guanyador.taula][guanyador.columna])] += 2;
+  // perdedor queda a 0
+
+  // Altres parelles: taula del guanyador -> 0, altra taula -> 2
+  for(let i=0;i<2;i++){
+    for(let j=0;j<2;j++){
+      const isWinner = (i===guanyador.taula && j===guanyador.columna);
+      const isLoser  = (i===perdedor.taula  && j===perdedor.columna);
+      if(isWinner || isLoser) continue;
+      const idx = indexParella(P[i][j]);
+      punts[idx] += (i === guanyador.taula) ? 0 : 2;
+    }
+  }
+
+  return punts;
+}
+
+function guardarHistorial(jocIdx, punts){
+  H[jocIdx] = [...punts];
+}
+
+function calcularResultat(){
+  const totals = [0,0,0,0];
+  for(let i=0;i<4;i++){
+    totals[i] = H.reduce((sum,row)=>sum+row[i],0);
+  }
+  return parelles
+    .map((p,i)=>({parella:p, punts: totals[i]}))
+    .sort((a,b)=>b.punts - a.punts);
+}
+
+function resetPool(){
+  franja = 1;
+  jocIndex = 0;
+  P = [["P1","P2"],["P3","P4"]];
+  J = ["P1","P3"];
+  H = Array.from({length:24}, ()=>[0,0,0,0]);
+  lastPunts = [0,0,0,0];
+  renderAll();
+}
+
+function el(id){ return document.getElementById(id); }
+
+function setMsg(id, txt, cls){
+  const node = el(id);
+  node.className = cls || "muted";
+  node.textContent = txt;
+}
+
+function carregarSelectsParelles(){
+  const s1 = el("j_t1");
+  const s2 = el("j_t2");
+  [s1,s2].forEach(s=>{
+    s.innerHTML = "";
+    parelles.forEach(p=>{
+      const opt = document.createElement("option");
+      opt.value = p; opt.textContent = p;
+      s.appendChild(opt);
+    });
+  });
+  s1.value = J[0];
+  s2.value = J[1];
+}
+
+function renderP(){
+  el("vp_00").textContent = P[0][0];
+  el("vp_01").textContent = P[0][1];
+  el("vp_10").textContent = P[1][0];
+  el("vp_11").textContent = P[1][1];
+}
+
+function renderHeader(){
+  el("franja").textContent = franja;
+  el("joc").textContent = (jocIndex + 1);
+}
+
+function renderLastPunts(){
+  const tbody = el("vPunts");
+  tbody.innerHTML = "";
+  parelles.forEach((p,i)=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${p}</td><td>${lastPunts[i]}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderAll(){
+  renderHeader();
+  renderP();
+  carregarSelectsParelles();
+  renderLastPunts();
+  el("zonaH").innerHTML = "";
+  el("zonaR").innerHTML = "";
+  setMsg("msgP","", "muted");
+  setMsg("msgCalc","", "muted");
+}
+
+el("btnGuardarP").addEventListener("click", ()=>{
+  const t1ns = el("p_t1_ns").value.trim();
+  const t1eo = el("p_t1_eo").value.trim();
+  const t2ns = el("p_t2_ns").value.trim();
+  const t2eo = el("p_t2_eo").value.trim();
+
+  parelles = [t1ns,t1eo,t2ns,t2eo];
+  P = [[t1ns,t1eo],[t2ns,t2eo]];
+
+  J = [P[0][0], P[1][0]];
+
+  setMsg("msgP","Posicions guardades.", "ok");
+  renderAll();
+});
+
+el("btnCalcular").addEventListener("click", ()=>{
+  try{
+    J = [el("j_t1").value, el("j_t2").value];
+
+    let M = [[0,0],[0,0]];
+    const [a1,b1] = el("m1_pos").value.split(",").map(Number);
+    const [a2,b2] = el("m2_pos").value.split(",").map(Number);
+    const v1 = Number(el("m1_val").value);
+    const v2 = Number(el("m2_val").value);
+
+    if(!Number.isFinite(v1) || !Number.isFinite(v2)) throw new Error("Introdueix dos valors numèrics.");
+    if(v1 === 0 || v2 === 0) throw new Error("Els valors han de ser no nuls (≠0).");
+    if(a1===a2 && b1===b2) throw new Error("Els dos resultats no poden anar a la mateixa posició.");
+
+    M[a1][b1] = v1;
+    M[a2][b2] = v2;
+
+    const punts = aplicarRegles(M, J);
+    lastPunts = punts;
+
+    guardarHistorial(jocIndex, punts);
+
+    setMsg("msgCalc", `Joc ${jocIndex+1}: punts guardats a H.`, "ok");
+
+    if(jocIndex < 23) jocIndex++;
+    renderAll();
+
+  }catch(e){
+    setMsg("msgCalc", e.message, "warn");
+  }
+});
+
+el("btnNovaFranja").addEventListener("click", ()=>{
+  if(franja < 3){
+    franja++;
+    setMsg("msgP", "Nova franja: revisa/actualitza posicions P.", "warn");
+  }else{
+    setMsg("msgP", "Ja ets a la franja 3.", "warn");
+  }
+  renderHeader();
+});
+
+el("btnMostrarH").addEventListener("click", ()=>{
+  const start = Math.max(0, jocIndex - 10);
+  const end = Math.min(24, jocIndex + 1);
+  let html = `<div class="muted">Mostrant H de jocs ${start+1} a ${end} (columnes = parelles en l’ordre actual).</div>`;
+  html += `<table><thead><tr><th>Joc</th>${parelles.map(p=>`<th>${p}</th>`).join("")}</tr></thead><tbody>`;
+  for(let i=start;i<end;i++){
+    html += `<tr><td>${i+1}</td>${H[i].map(x=>`<td>${x}</td>`).join("")}</tr>`;
+  }
+  html += `</tbody></table>`;
+  el("zonaH").innerHTML = html;
+});
+
+el("btnResultat").addEventListener("click", ()=>{
+  const r = calcularResultat();
+  let html = `<table><thead><tr><th>Posició</th><th>Parella</th><th>Punts</th></tr></thead><tbody>`;
+  r.forEach((x,idx)=>{
+    html += `<tr><td>${idx+1}</td><td>${x.parella}</td><td><strong>${x.punts}</strong></td></tr>`;
+  });
+  html += `</tbody></table>`;
+  el("zonaR").innerHTML = html;
+});
+
+el("btnReset").addEventListener("click", resetPool);
+
+renderAll();
+</script>
+
+</body>
+</html>
