@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Bridge Judge PRO (Final amb J)</title>
+
+<style>
+body { font-family: Arial; padding: 20px; background:#f5f5f5; }
+.box { background:white; padding:15px; margin-bottom:15px; border-radius:8px; }
+input, select { margin:5px; padding:5px; }
+button { margin:5px; padding:10px; }
+button:disabled { background:#ccc; }
+input:disabled { background:#ddd; }
+</style>
+</head>
+
+<body>
+
+<h2>Bridge Judge PRO (Final amb J)</h2>
+
+<div class="box">
+<h3>Franja</h3>
+<select id="franja">
+<option value="0">Franja 1</option>
+<option value="1">Franja 2</option>
+<option value="2">Franja 3</option>
+</select>
+<div id="estatFranja"></div>
+</div>
+
+<div class="box">
+<h3>Configuració</h3>
+
+Taula 1:
+V <select id="t1V"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+H <select id="t1H"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+
+<br><br>
+
+Taula 2:
+V <select id="t2V"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+H <select id="t2H"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+
+<br>
+<button onclick="guardarConfig()">Guardar configuració</button>
+</div>
+
+<div class="box">
+<h3>Qui juga (J)</h3>
+
+Taula 1:
+V <input type="radio" name="j1" value="0">
+H <input type="radio" name="j1" value="1"><br>
+
+Taula 2:
+V <input type="radio" name="j2" value="0">
+H <input type="radio" name="j2" value="1">
+</div>
+
+<div class="box">
+<h3>Resultats</h3>
+
+Taula 1:
+<input id="t1v" placeholder="V">
+<input id="t1h" placeholder="H"><br>
+
+Taula 2:
+<input id="t2v" placeholder="V">
+<input id="t2h" placeholder="H">
+</div>
+
+<button onclick="calcular()">Calcular ronda</button>
+<button onclick="nova()">Nova ronda</button>
+<button onclick="resetSessio()">Reset</button>
+
+<h3>Resultat</h3>
+<div id="resultat"></div>
+
+<h3>Historial</h3>
+<div id="historial"></div>
+
+<h3>Resum per franges</h3>
+<div id="resum"></div>
+
+<h3>Ranking</h3>
+<div id="ranking"></div>
+
+<script>
+
+function $(id){ return document.getElementById(id); }
+
+let configuracions=[null,null,null];
+let historial=[[],[],[]];
+let ranking=[0,0,0,0];
+
+let rondaGlobal=0;
+let rondaCalculada=false;
+
+// ---------- STORAGE ----------
+function guardarDades(){
+localStorage.setItem("bridgePRO", JSON.stringify({
+configuracions,historial,ranking,rondaGlobal
+}));
+}
+
+function carregarDades(){
+let d=localStorage.getItem("bridgePRO");
+if(!d) return;
+
+let obj=JSON.parse(d);
+configuracions=obj.configuracions||[null,null,null];
+historial=obj.historial||[[],[],[]];
+ranking=obj.ranking||[0,0,0,0];
+rondaGlobal=obj.rondaGlobal||0;
+
+actualitzarUI();
+}
+
+// ---------- UI ----------
+function actualitzarUI(){
+
+let f=Math.floor(rondaGlobal/8);
+$("franja").value=String(f);
+$("franja").disabled=true;
+
+$("estatFranja").innerHTML="Ronda "+(rondaGlobal+1)+" / 24 — Franja "+(f+1);
+
+// bloqueig configuració
+let bloquejat = historial[f].length>0;
+["t1V","t1H","t2V","t2H"].forEach(id=>{
+$(id).disabled=bloquejat;
+});
+
+// historial
+let h="";
+for(let i=0;i<3;i++){
+h+="<b>Franja "+(i+1)+"</b><br>";
+historial[i].forEach((r,j)=>{
+h+="Joc "+(j+1)+": "+r.join(", ")+"<br>";
+});
+h+="<br>";
+}
+$("historial").innerHTML=h;
+
+// resum
+let resum="";
+for(let i=0;i<3;i++){
+let t=[0,0,0,0];
+historial[i].forEach(r=>{
+for(let k=0;k<4;k++) t[k]+=r[k];
+});
+resum+="Franja "+(i+1)+": "+t.join(", ")+"<br>";
+}
+$("resum").innerHTML=resum;
+
+// ranking
+let arr=[
+{p:"P1",v:ranking[0]},
+{p:"P2",v:ranking[1]},
+{p:"P3",v:ranking[2]},
+{p:"P4",v:ranking[3]}
+];
+
+arr.sort((a,b)=>b.v-a.v);
+
+let r="";
+arr.forEach((e,i)=>{
+r+=(i+1)+"º "+e.p+": "+e.v+"<br>";
+});
+$("ranking").innerHTML=r;
+}
+
+// ---------- CONFIG ----------
+function guardarConfig(){
+
+let f=Math.floor(rondaGlobal/8);
+
+if(historial[f].length>0){
+alert("No pots canviar configuració en aquesta franja");
+return;
+}
+
+let vals=[$("t1V").value,$("t1H").value,$("t2V").value,$("t2H").value];
+
+if(vals.includes("")) return alert("Falten parelles");
+
+if(new Set(vals).size!==4) return alert("Repetides");
+
+configuracions[f]={
+t1V:+vals[0],
+t1H:+vals[1],
+t2V:+vals[2],
+t2H:+vals[3]
+};
+
+guardarDades();
+alert("Configuració guardada");
+}
+
+// ---------- J ----------
+function getJ(){
+
+let j1=document.querySelector('input[name="j1"]:checked');
+let j2=document.querySelector('input[name="j2"]:checked');
+
+if(!j1||!j2){
+alert("Falta J");
+return null;
+}
+
+return [
+[j1.value==="0"?1:0, j1.value==="1"?1:0],
+[j2.value==="0"?1:0, j2.value==="1"?1:0]
+];
+}
+
+// ---------- UTIL ----------
+function rival(x,c){
+if(x===c.t1V) return c.t1H;
+if(x===c.t1H) return c.t1V;
+if(x===c.t2V) return c.t2H;
+return c.t2V;
+}
+
+// ---------- CALCULAR ----------
+function calcular(){
+
+if(rondaCalculada) return alert("Ja calculat");
+if(rondaGlobal>=24) return alert("Finalitzat");
+
+let f=Math.floor(rondaGlobal/8);
+let c=configuracions[f];
+if(!c) return alert("Configura franja");
+
+let J=getJ(); if(!J) return;
+
+let M=[
+[+($("t1v").value)||0, +($("t1h").value)||0],
+[+($("t2v").value)||0, +($("t2h").value)||0]
+];
+
+// validació
+for(let i=0;i<2;i++){
+if((M[i][0]&&M[i][1])||(!M[i][0]&&!M[i][1])){
+alert("Error taula "+(i+1)); return;
+}
+}
+
+// extreure
+let vals=[],pos=[];
+for(let i=0;i<2;i++){
+for(let j=0;j<2;j++){
+if(M[i][j]){
+vals.push(M[i][j]);
+pos.push([i,j]);
+}
+}
+}
+
+let [i1,j1]=pos[0];
+let [i2,j2]=pos[1];
+let v1=vals[0], v2=vals[1];
+
+let p1=(i1? (j1?c.t2H:c.t2V):(j1?c.t1H:c.t1V));
+let p2=(i2? (j2?c.t2H:c.t2V):(j2?c.t1H:c.t1V));
+
+let punts=[0,0,0,0];
+
+if(v1===v2){
+punts=[1,1,1,1];
+}else{
+let g=v1>v2?p1:p2;
+let p=v1>v2?p2:p1;
+
+punts[g]=2;
+punts[p]=0;
+punts[rival(g,c)]=0;
+punts[rival(p,c)]=2;
+}
+
+ranking=ranking.map((v,i)=>v+punts[i]);
+historial[f].push(punts);
+
+$("resultat").innerHTML=punts.join(" | ");
+
+rondaCalculada=true;
+rondaGlobal++;
+
+if(rondaGlobal===8||rondaGlobal===16){
+alert("Nova franja");
+}
+
+actualitzarUI();
+guardarDades();
+}
+
+// ---------- NOVA ----------
+function nova(){
+["t1v","t1h","t2v","t2h"].forEach(id=>$(id).value="");
+document.querySelectorAll('input[type="radio"]').forEach(r=>r.checked=false);
+rondaCalculada=false;
+}
+
+// ---------- RESET ----------
+function resetSessio(){
+
+if(!confirm("Reset?")) return;
+
+configuracions=[null,null,null];
+historial=[[],[],[]];
+ranking=[0,0,0,0];
+rondaGlobal=0;
+rondaCalculada=false;
+
+localStorage.removeItem("bridgePRO");
+
+nova();
+actualitzarUI();
+}
+
+// ---------- INIT ----------
+carregarDades();
+actualitzarUI();
+
+</script>
+
+</body>
+</html>
