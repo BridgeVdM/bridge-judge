@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Bridge Judge FINAL</title>
+
+<style>
+body { font-family: Arial; padding:20px; background:#f2f2f2;}
+.box { background:white; padding:15px; margin-bottom:15px; border-radius:8px;}
+input, select { margin:5px; padding:5px;}
+button { padding:10px; margin:5px;}
+</style>
+</head>
+
+<body>
+
+<h2>Bridge Judge FINAL</h2>
+
+<div class="box">
+<h3>Franja</h3>
+<div id="info"></div>
+</div>
+
+<div class="box">
+<h3>Configuració P (fixa per franja)</h3>
+
+Taula 1:
+V <select id="t1V"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+H <select id="t1H"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+
+<br><br>
+
+Taula 2:
+V <select id="t2V"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+H <select id="t2H"><option value="">--</option><option value="0">P1</option><option value="1">P2</option><option value="2">P3</option><option value="3">P4</option></select>
+
+<br>
+<button onclick="guardarP()">Guardar configuració</button>
+</div>
+
+<div class="box">
+<h3>Declarants D</h3>
+
+Taula 1:
+<select id="d1"><option value="">--</option><option value="0">V</option><option value="1">H</option></select>
+
+Taula 2:
+<select id="d2"><option value="">--</option><option value="0">V</option><option value="1">H</option></select>
+</div>
+
+<div class="box">
+<h3>Resultats M</h3>
+
+Taula 1:
+<input id="t1v" placeholder="V">
+<input id="t1h" placeholder="H"><br>
+
+Taula 2:
+<input id="t2v" placeholder="V">
+<input id="t2h" placeholder="H">
+</div>
+
+<button onclick="calcular()">Calcular ronda</button>
+<button onclick="nova()">Nova ronda</button>
+<button onclick="reset()">Reset</button>
+
+<h3>Resultat</h3>
+<div id="res"></div>
+
+<h3>Ranking</h3>
+<div id="rank"></div>
+
+<script>
+
+function $(id){ return document.getElementById(id); }
+
+let P=[null,null,null];
+let H=[[],[],[]];
+let R=[0,0,0,0];
+
+let ronda=0;
+let bloquejat=false;
+
+// ---------- guardar P ----------
+function guardarP(){
+
+let f=Math.floor(ronda/8);
+
+if(H[f].length>0){
+alert("Franja bloquejada");
+return;
+}
+
+let vals=[$("t1V").value,$("t1H").value,$("t2V").value,$("t2H").value];
+
+if(vals.includes("")) return alert("Falten dades");
+
+if(new Set(vals).size!==4) return alert("Repetides");
+
+P[f]=[
+[+vals[0],+vals[1]],
+[+vals[2],+vals[3]]
+];
+
+alert("Configuració guardada");
+}
+
+// ---------- rival ----------
+function rival(x,P){
+for(let i=0;i<2;i++){
+if(P[i][0]===x) return P[i][1];
+if(P[i][1]===x) return P[i][0];
+}
+}
+
+// ---------- motor ----------
+function motor(P,D,M){
+
+let vals=[],pos=[];
+
+for(let i=0;i<2;i++){
+for(let j=0;j<2;j++){
+if(M[i][j]){
+vals.push(M[i][j]);
+pos.push([i,j]);
+}
+}
+}
+
+let [i1,j1]=pos[0];
+let [i2,j2]=pos[1];
+
+let v1=vals[0], v2=vals[1];
+
+let p1=P[i1][j1];
+let p2=P[i2][j2];
+
+function linia(i){
+return P[i][0]===D[i]?0:1;
+}
+
+let ld1=linia(i1);
+let ld2=linia(i2);
+
+let mateixaLinia=(ld1===ld2);
+let mateixaCol=(j1===j2);
+
+let pts=[0,0,0,0];
+
+// CAS 1
+if(mateixaLinia && mateixaCol){
+
+if(v1===v2) return [1,1,1,1];
+
+let g=v1>v2?p1:p2;
+let p=v1>v2?p2:p1;
+
+pts[g]=2;
+pts[p]=0;
+pts[rival(g,P)]=0;
+pts[rival(p,P)]=2;
+}
+
+// CAS 2
+else if(!mateixaLinia && !mateixaCol){
+
+pts[D[0]]=2;
+pts[D[1]]=2;
+}
+
+// CAS 3
+else if(!mateixaLinia && mateixaCol){
+
+if(v1===v2) return [1,1,1,1];
+
+let g=v1>v2?p1:p2;
+let p=v1>v2?p2:p1;
+
+pts[g]=2;
+pts[p]=0;
+pts[rival(g,P)]=0;
+pts[rival(p,P)]=2;
+}
+
+// CAS 4
+else if(mateixaLinia && !mateixaCol){
+
+pts[p1]=2;
+pts[p2]=2;
+}
+
+return pts;
+}
+
+// ---------- calcular ----------
+function calcular(){
+
+if(bloquejat) return alert("Ja calculat");
+
+let f=Math.floor(ronda/8);
+if(!P[f]) return alert("Configura franja");
+
+let D=[
+P[f][0][$("d1").value],
+P[f][1][$("d2").value]
+];
+
+if($("d1").value===""||$("d2").value==="") return alert("Falta D");
+
+let M=[
+[+($("t1v").value)||0,+($("t1h").value)||0],
+[+($("t2v").value)||0,+($("t2h").value)||0]
+];
+
+// validar 1 valor per taula
+for(let i=0;i<2;i++){
+if((M[i][0]&&M[i][1])||(!M[i][0]&&!M[i][1])){
+return alert("Error taula "+(i+1));
+}
+}
+
+let pts=motor(P[f],D,M);
+
+for(let i=0;i<4;i++) R[i]+=pts[i];
+
+H[f].push(pts);
+
+$("res").innerHTML=pts.join(" | ");
+
+bloquejat=true;
+ronda++;
+
+if(ronda===8||ronda===16) alert("Canvi de franja");
+
+actualitzar();
+}
+
+// ---------- nova ----------
+function nova(){
+["t1v","t1h","t2v","t2h"].forEach(id=>$(id).value="");
+$("d1").value="";
+$("d2").value="";
+bloquejat=false;
+}
+
+// ---------- reset ----------
+function reset(){
+
+if(!confirm("Reset total?")) return;
+
+P=[null,null,null];
+H=[[],[],[]];
+R=[0,0,0,0];
+ronda=0;
+bloquejat=false;
+
+nova();
+actualitzar();
+}
+
+// ---------- UI ----------
+function actualitzar(){
+
+let f=Math.floor(ronda/8);
+$("info").innerHTML="Ronda "+(ronda+1)+" / 24 — Franja "+(f+1);
+
+// ranking
+let txt="";
+R.forEach((v,i)=> txt+="P"+(i+1)+": "+v+"<br>");
+$("rank").innerHTML=txt;
+}
+
+actualitzar();
+
+</script>
+
+</body>
+</html>
