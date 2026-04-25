@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Bridge Pool Judge - Regla Global</title>
+
+<style>
+  body { font-family: Arial; padding: 20px; }
+  input, select { margin: 5px; padding: 5px; width: 90px; }
+  button { margin: 10px; padding: 10px; font-size: 16px; }
+  .error { color: red; font-weight: bold; }
+</style>
+
+</head>
+<body>
+
+<h2>Bridge Pool Judge</h2>
+
+<h3>Taula 1</h3>
+V: <select id="t1V">
+<option value="">--</option>
+<option value="0">P1</option><option value="1">P2</option>
+<option value="2">P3</option><option value="3">P4</option>
+</select>
+<input id="t1x" type="number" placeholder="x"><br>
+
+H: <select id="t1H">
+
+<option value="">--</option>
+<option value="0">P1</option><option value="1">P2</option>
+<option value="2">P3</option><option value="3">P4</option>
+</select>
+<input id="t1y" type="number" placeholder="y"><br>
+
+<h3>Taula 2</h3>
+V: <select id="t2V">
+<option value="">--</option>
+<option value="0">P1</option><option value="1">P2</option>
+<option value="2">P3</option><option value="3">P4</option>
+</select>
+<input id="t2x" type="number" placeholder="x"><br>
+
+H: <select id="t2H">
+
+<option value="">--</option>
+<option value="0">P1</option><option value="1">P2</option>
+<option value="2">P3</option><option value="3">P4</option>
+</select>
+<input id="t2y" type="number" placeholder="y"><br>
+
+<button onclick="calcular()">Calcular ronda</button>
+
+<h3>Resultat</h3>
+<div id="resultat"></div>
+
+<script>
+
+function calcular(){
+
+  let out = document.getElementById("resultat");
+  out.innerHTML = "";
+
+  let t1V = document.getElementById("t1V").value;
+  let t1H = document.getElementById("t1H").value;
+  let t2V = document.getElementById("t2V").value;
+  let t2H = document.getElementById("t2H").value;
+
+  let x1 = document.getElementById("t1x").value;
+  let y1 = document.getElementById("t1y").value;
+  let x2 = document.getElementById("t2x").value;
+  let y2 = document.getElementById("t2y").value;
+
+  let errors = [];
+
+  if ([t1V,t1H,t2V,t2H].includes("")) {
+    errors.push("Falten parelles");
+  }
+
+  let all = [t1V,t1H,t2V,t2H];
+  if (new Set(all).size !== 4) {
+    errors.push("Parelles repetides");
+  }
+
+  if ((x1 && y1) || (!x1 && !y1)) {
+    errors.push("Taula 1: cal EXACTAMENT un valor (x o y)");
+  }
+
+  if ((x2 && y2) || (!x2 && !y2)) {
+    errors.push("Taula 2: cal EXACTAMENT un valor (x o y)");
+  }
+
+  if (errors.length){
+    out.innerHTML = "<div class='error'>" + errors.join("<br>") + "</div>";
+    return;
+  }
+
+  t1V=Number(t1V); t1H=Number(t1H);
+  t2V=Number(t2V); t2H=Number(t2H);
+
+  x1=Number(x1)||0; y1=Number(y1)||0;
+  x2=Number(x2)||0; y2=Number(y2)||0;
+
+  let p1 = x1!==0 ? t1V : t1H;
+  let p2 = x2!==0 ? t2V : t2H;
+
+  let val1 = x1!==0 ? x1 : y1;
+  let val2 = x2!==0 ? x2 : y2;
+
+  if (val1 === val2){
+    out.innerHTML = "<b>Empat → 1,1,1,1</b>";
+    return;
+  }
+
+  let guanyador = val1 > val2 ? p1 : p2;
+  let perdedor = val1 > val2 ? p2 : p1;
+
+  let punts = [0,0,0,0];
+
+  punts[guanyador] = 2;
+
+  function rival(p){
+    if (p===t1V) return t1H;
+    if (p===t1H) return t1V;
+    if (p===t2V) return t2H;
+    return t2V;
+  }
+
+  punts[rival(guanyador)] = 0;
+  punts[perdedor] = 0;
+  punts[rival(perdedor)] = 2;
+
+  out.innerHTML =
+    "P1: "+punts[0]+"<br>"+
+    "P2: "+punts[1]+"<br>"+
+    "P3: "+punts[2]+"<br>"+
+    "P4: "+punts[3];
+}
+
+</script>
+
+</body>
+</html>
