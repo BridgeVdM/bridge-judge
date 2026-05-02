@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Bridge Judge PRO</title>
+
+<style>
+body { font-family: Arial; padding:20px; background:#f2f2f2;}
+.box { background:white; padding:15px; margin-bottom:15px; border-radius:8px;}
+input, select { margin:5px; padding:5px;}
+button { padding:10px; margin:5px;}
+</style>
+</head>
+
+<body>
+
+<h2>Bridge Judge PRO</h2>
+
+<div class="box">
+<h3 id="info"></h3>
+</div>
+
+<div class="box">
+<h3>Configuració franja</h3>
+
+Taula 1:
+NS <select id="t1V"></select>
+EO <select id="t1H"></select>
+
+<br><br>
+
+Taula 2:
+NS <select id="t2V"></select>
+EO <select id="t2H"></select>
+
+<br>
+<button onclick="guardarP()">Guardar configuració</button>
+</div>
+
+<div class="box">
+<h3>Resultats</h3>
+
+Taula 1:
+<input id="t1v" placeholder="NS">
+<input id="t1h" placeholder="EO"><br>
+
+Taula 2:
+<input id="t2v" placeholder="NS">
+<input id="t2h" placeholder="EO">
+</div>
+
+<button onclick="calcular()">Calcular ronda</button>
+<button onclick="nova()">Nova ronda</button>
+<button onclick="reset()">Reset total</button>
+
+<h3>Resultat ronda</h3>
+<div id="res"></div>
+
+<h3>Ranking</h3>
+<div id="rank"></div>
+
+<h3>Historial</h3>
+<div id="hist"></div>
+
+<script>
+
+// ---------- helpers ----------
+function $(id){ return document.getElementById(id); }
+
+// ---------- estat ----------
+let P=[null,null,null];
+let H=[[],[],[]];
+let R=[0,0,0,0];
+let ronda=0;
+let bloquejat=false;
+
+// ---------- init selectors ----------
+function initSelectors(){
+["t1V","t1H","t2V","t2H"].forEach(id=>{
+let s=$(id);
+s.innerHTML='<option value="">--</option>';
+for(let i=0;i<4;i++){
+s.innerHTML+=`<option value="${i}">P${i+1}</option>`;
+}
+});
+}
+
+// ---------- storage ----------
+function guardarDades(){
+localStorage.setItem("bridgePRO", JSON.stringify({P,H,R,ronda}));
+}
+
+function carregarDades(){
+let d=localStorage.getItem("bridgePRO");
+if(!d) return;
+let o=JSON.parse(d);
+P=o.P; H=o.H; R=o.R; ronda=o.ronda;
+}
+
+// ---------- rival ----------
+function rival(x,P){
+for(let i=0;i<2;i++){
+if(P[i][0]===x) return P[i][1];
+if(P[i][1]===x) return P[i][0];
+}
+}
+
+// ---------- MOTOR FINAL ----------
+function motor(P,M){
+
+let pos=[];
+for(let i=0;i<2;i++){
+for(let j=0;j<2;j++){
+if(M[i][j]) pos.push([i,j]);
+}
+}
+
+if(pos.length!==2) return [0,0,0,0];
+
+// 🔵 mateixa columna → COMPARACIÓ
+if(pos[0][1]===pos[1][1]){
+
+let [i1,j1]=pos[0];
+let [i2,j2]=pos[1];
+
+let v1=M[i1][j1];
+let v2=M[i2][j2];
+
+let p1=P[i1][j1];
+let p2=P[i2][j2];
+
+if(v1===v2) return [1,1,1,1];
+
+let g=(v1>v2)?p1:p2;
+let l=(v1>v2)?p2:p1;
+
+let pts=[0,0,0,0];
+
+pts[g]=2;
+pts[l]=0;
+
+pts[rival(g,P)]=0;
+pts[rival(l,P)]=2;
+
+return pts;
+}
+
+// 🟢 columnes diferents → POSICIÓ
+let pts=[0,0,0,0];
+
+for(let [i,j] of pos){
+let p=P[i][j];
+let r=rival(p,P);
+pts[p]=2;
+pts[r]=0;
+}
+
+return pts;
+}
+
+// ---------- guardar configuració ----------
+function guardarP(){
+
+let f=Math.floor(ronda/8);
+
+if(H[f].length>0){
+alert("Franja bloquejada");
+return;
+}
+
+let vals=[$("t1V").value,$("t1H").value,$("t2V").value,$("t2H").value];
+
+if(vals.includes("")) return alert("Falten dades");
+if(new Set(vals).size!==4) return alert("Parelles repetides");
+
+P[f]=[
+[+vals[0],+vals[1]],
+[+vals[2],+vals[3]]
+];
+
+guardarDades();
+alert("Configuració guardada");
+}
+
+// ---------- calcular ----------
+function calcular(){
+
+if(bloquejat) return alert("Ja calculat");
+
+let f=Math.floor(ronda/8);
+if(!P[f]) return alert("Configura franja");
+
+let M=[
+[+($("t1v").value)||0,+($("t1h").value)||0],
+[+($("t2v").value)||0,+($("t2h").value)||0]
+];
+
+// validació
+for(let i=0;i<2;i++){
+if((M[i][0]&&M[i][1])||(!M[i][0]&&!M[i][1])){
+return alert("Error taula "+(i+1));
+}
+}
+
+let pts=motor(P[f],M);
+
+// acumular
+for(let i=0;i<4;i++) R[i]+=pts[i];
+
+H[f].push(pts);
+
+$("res").innerHTML=pts.join(" | ");
+
+bloquejat=true;
+ronda++;
+
+if(ronda===8||ronda===16){
+alert("Canvi de franja");
+}
+
+guardarDades();
+actualitzar();
+}
+
+// ---------- nova ronda ----------
+function nova(){
+["t1v","t1h","t2v","t2h"].forEach(id=>$(id).value="");
+bloquejat=false;
+}
+
+// ---------- reset ----------
+function reset(){
+
+if(!confirm("Reset total?")) return;
+
+P=[null,null,null];
+H=[[],[],[]];
+R=[0,0,0,0];
+ronda=0;
+bloquejat=false;
+
+localStorage.removeItem("bridgePRO");
+
+["t1V","t1H","t2V","t2H","t1v","t1h","t2v","t2h"].forEach(id=>$(id).value="");
+
+$("res").innerHTML="";
+$("rank").innerHTML="";
+$("hist").innerHTML="";
+
+actualitzar();
+}
+
+// ---------- UI ----------
+function actualitzar(){
+
+let f=Math.floor(ronda/8);
+$("info").innerHTML="Ronda "+(ronda+1)+" / 24 — Franja "+(f+1);
+
+// ranking
+let txt="";
+R.forEach((v,i)=> txt+="P"+(i+1)+": "+v+"<br>");
+$("rank").innerHTML=txt;
+
+// historial
+let htxt="";
+for(let i=0;i<3;i++){
+htxt+="<b>Franja "+(i+1)+"</b><br>";
+H[i].forEach((r,j)=>{
+htxt+="Joc "+(j+1)+": "+r.join(" | ")+"<br>";
+});
+htxt+="<br>";
+}
+$("hist").innerHTML=htxt;
+}
+
+// ---------- INIT ----------
+initSelectors();
+carregarDades();
+actualitzar();
+
+</script>
+
+</body>
+</html>
